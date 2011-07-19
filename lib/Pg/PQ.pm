@@ -1,6 +1,6 @@
 package Pg::PQ;
 
-our $VERSION = '0.04';
+our $VERSION = '0.05';
 
 use 5.010001;
 use strict;
@@ -22,18 +22,26 @@ sub _escape_opt {
     my $n = shift;
     $n =~ s/(['\\])/\\$1/g;
     $n = "'$n'" if $n =~ /\s/;
+    $n;
 }
 
 sub _make_conninfo {
-    my @conninfo = (@_ & 1 ? shift : ());
-    my %opts = @_;
+    my (%opts, @conninfo);
+    if (@_ == 1 and ref $_[0] eq 'HASH') {
+        %opts = %{$_[0]}
+    }
+    else {
+        $conninfo[0] = shift @_ if @_ & 1;
+        %opts = @_;
+    }
     push @conninfo, map _escape_opt($_).'='._escape_opt($opts{$_}), keys %opts;
+    # warn "conninfo: >@conninfo<\n";
     join ' ', @conninfo;
 }
 
 sub start {
     shift; # discards class
-    connectdb(_make_conninfo @_)
+    connectStart(_make_conninfo @_)
 }
 
 sub new {
@@ -138,6 +146,8 @@ These are the methods available from the class Pg::PQ::Conn:
 =item $dbc = Pg::PQ::Conn->new($conninfo)
 
 =item $dbc = Pg::PQ::Conn->new(%conninfo)
+
+=item $dbc = Pg::PQ::Conn->new(\%conninfo)
 
 X<new>I<(wraps PQconnectdb)>
 
@@ -407,6 +417,10 @@ See also
 L<http://www.postgresql.org/docs/9.0/interactive/libpq-connect.html>.
 
 =item $dbc = Pg::PQ::Conn->start($conninfo)
+
+=item $dbc = Pg::PQ::Conn->start(%conninfo)
+
+=item $dbc = Pg::PQ::Conn->start(\%conninfo)
 
 X<start>I<(wraps PQconnectStart)>
 
@@ -1633,6 +1647,9 @@ to databases configured to use other encodings would produce bad data
 (and maybe even crash the application).
 
 =head2 Commercial support
+
+This module was implemented during the development of QVD
+(L<http://theqvd.com>) the Linux VDI platform.
 
 Commercial support, professional services and custom software
 development services around this module are available from QindelGroup

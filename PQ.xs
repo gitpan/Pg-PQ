@@ -261,7 +261,10 @@ CODE:
         int n = items - 2, i;
         char **values;
         Newx(values, n, char *);
-        for (i = 0; i < n; i++) values[i] = SvPV_nolen(ST(i + 2));
+        for (i = 0; i < n; i++) {
+            SV *sv = ST(i + 2);
+            values[i] = (SvOK(sv) ? SvPV_nolen(sv) : NULL);
+        }
         RETVAL = PQsendQueryParams(conn, command, n, NULL, (const char **)values, NULL, NULL, 0);
         Safefree(values);
     }
@@ -557,6 +560,8 @@ CODE:
         RETVAL = &PL_sv_undef;
     else
         RETVAL = newSVpv(pv, 0);
+OUTPUT:
+    RETVAL
 
 Oid PQoidValue(PGresult *res)
 
@@ -581,4 +586,6 @@ CODE:
         SvIOK_on(RETVAL);
         SvIV_set(RETVAL, 1);
     }
+OUTPUT:
+    RETVAL
             

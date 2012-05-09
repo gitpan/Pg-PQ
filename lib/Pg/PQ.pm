@@ -1,6 +1,6 @@
 package Pg::PQ;
 
-our $VERSION = '0.06';
+our $VERSION = '0.07';
 
 use 5.010001;
 use strict;
@@ -16,7 +16,6 @@ our @EXPORT_OK = map @$_, values %EXPORT_TAGS;
 $EXPORT_TAGS{all} = [@EXPORT_OK];
 
 package Pg::PQ::Conn;
-use Carp;
 
 sub _escape_opt {
     my $n = shift;
@@ -54,31 +53,38 @@ sub DESTROY {
     $self->finish if $$self;
 }
 
-sub getssl { croak "Pg::PQ::Conn::getssl not implemented" }
+sub getssl { Carp::croak("Pg::PQ::Conn::getssl not implemented") }
 
 package Pg::PQ::Result;
 
-my %error_fields = qw( severity            S
-                       sqlstate            C
-                       message_primary     M
-                       message_detail      D
-                       message_hint        H
-                       statement_position  P
-                       internal_position   p
-                       internal_query      q
-                       context             W
-                       source_file         F
-                       source_line         L
-                       source_function     R );
+my %error_field = qw( severity            S
+                      sqlstate            C
+                      message_primary     M
+                      message_detail      D
+                      message_hint        H
+                      statement_position  P
+                      internal_position   p
+                      internal_query      q
+                      context             W
+                      source_file         F
+                      source_line         L
+                      source_function     R );
 
 sub errorDescription {
     my $self = shift;
     my %desc;
-    for my $key (keys %error_fields) {
-	my $v = $self->errorField($error_fields{$key});
-	$desc{$key} = $v if defined $v;
+    while (my ($field, $key) = each %error_field) {
+	my $v = $self->_errorField($key);
+	$desc{$field} = $v if defined $v;
     }
     return (%desc ? \%desc : ());
+}
+
+sub errorField {
+    my ($self, $field) = @_;
+    my $key = $error_field{$field};
+    defined $key or Carp::croak("bad field name '$field'");
+    $self->_errorField($key);
 }
 
 sub DESTROY {
@@ -951,10 +957,14 @@ yet (this case can only occur if the connection is nonblocking).
 
 =item $dbc->notifies
 
-Returns a Pg::PQ::Notify object representing the next notification
-from a list of unhandled notification messages received from the
-server or undef if the list is empty. See L</Asynchronous
-notification> below.
+Returns the name of the next notification from the list of unhandled
+notification messages received from the server or undef if the list is
+empty. See L</Asynchronous notification> below.
+
+On list context besides the notification name, the pid of the
+originating process and the payload are also returned. For instance:
+
+  my ($name, $pid, $extra) = $dbc->notifies;
 
 =item $esc = $dbc->escapeLiteral($literal)
 

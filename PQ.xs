@@ -33,6 +33,11 @@
 /* } */
 
 static SV *
+my_newSVpv_utf8(pTHX_ const char *str) {
+    return (str ? newSVpvn_utf8(str, strlen(str), 1) : &PL_sv_undef); 
+}
+
+static SV *
 make_constant(char *name, STRLEN l, U32 value, char *tag) {
     SV *sv = newSV(0);
     SvUPGRADE(sv, SVt_PVIV);
@@ -49,7 +54,7 @@ make_constant(char *name, STRLEN l, U32 value, char *tag) {
             Perl_croak(aTHX_ "internal error populating EXPORT_TAGS");
         if (!SvOK(*svp) || !SvROK(*svp) || (SvTYPE(SvRV(*svp)) != SVt_PVAV))
             sv_setsv(*svp, sv_2mortal(newRV_noinc((SV*)newAV())));
-        av_push((AV*)SvRV(*svp), newSVpv(name, 0));
+        av_push((AV*)SvRV(*svp), my_newSVpv_utf8(aTHX_ name));
     }
     return sv;
 }
@@ -156,7 +161,7 @@ CODE:
         int n = items - 2, i;
         char **values;
         Newx(values, n, char *);
-        for (i = 0; i < n; i++) values[i] = SvPV_nolen(ST(i + 2));
+        for (i = 0; i < n; i++) values[i] = SvPVutf8_nolen(ST(i + 2));
         RETVAL = PQexecParams(conn, command, n, NULL, (const char **)values, NULL, NULL, 0);
         Safefree(values);
     }
@@ -181,7 +186,7 @@ PREINIT:
     char **values;
 CODE:
     Newx(values, n, char *);
-    for (i = 0; i < n; i++) values[i] = SvPV_nolen(ST(i + 2));
+    for (i = 0; i < n; i++) values[i] = SvPVutf8_nolen(ST(i + 2));
     RETVAL = PQexecPrepared(conn, stmtName, n, (const char **)values, NULL, NULL, 0);
     Safefree(values);
 OUTPUT:
@@ -198,12 +203,15 @@ PPCODE:
     notice = PQnotifies(conn);
     if (notice) {
         int pid = notice->be_pid;
-        SV *name = newSVpv(notice->relname, 0);
+        SV *name = sv_2mortal(my_newSVpv_utf8(aTHX_ notice->relname));
+        SV *extra = sv_2mortal(my_newSVpv_utf8(aTHX_ notice->extra));
         PQfreemem(notice);
-        mPUSHs(name);
+        EXTEND(sp, 3);
+        PUSHs(name);
         if (GIMME_V == G_ARRAY) {
-            mPUSHi(pid);
-            XSRETURN(2);
+            PUSHs(sv_2mortal(newSViv(pid)));
+            PUSHs(extra);
+            XSRETURN(3);
         }
         else
             XSRETURN(1);
@@ -223,7 +231,7 @@ PREINIT:
     char *pv;
     int error;
 CODE:
-    pv = SvPV(from, len);
+    pv = SvPVutf8(from, len);
     RETVAL = newSV(len * 2 + 1);
     SvPOK_on(RETVAL);
     SvCUR_set(RETVAL, PQescapeStringConn(conn, SvPVX(RETVAL), pv, len, &error));
@@ -263,7 +271,7 @@ CODE:
         Newx(values, n, char *);
         for (i = 0; i < n; i++) {
             SV *sv = ST(i + 2);
-            values[i] = (SvOK(sv) ? SvPV_nolen(sv) : NULL);
+            values[i] = (SvOK(sv) ? SvPVutf8_nolen(sv) : NULL);
         }
         RETVAL = PQsendQueryParams(conn, command, n, NULL, (const char **)values, NULL, NULL, 0);
         Safefree(values);
@@ -285,7 +293,7 @@ PREINIT:
     char **values;
 CODE:
     Newx(values, n, char *);
-    for (i = 0; i < n; i++) values[i] = SvPV_nolen(ST(i + 2));
+    for (i = 0; i < n; i++) values[i] = SvPVutf8_nolen(ST(i + 2));
     RETVAL = PQsendQueryPrepared(conn, stmtName, n, (const char **)values, NULL, NULL, 0);
     Safefree(values);
 OUTPUT:
@@ -338,7 +346,7 @@ CLEANUP:
 
 char *PQresultErrorField(PGresult *res, char field);
 ALIAS:
-    errorField = 0
+    _errorField = 0
 CLEANUP:
     sv_chomp(ST(0));
 
@@ -407,7 +415,7 @@ CODE:
     else {
         pv = PQgetvalue(res, row_number, column_number);
         if (pv)
-            RETVAL = newSVpvn(pv, PQgetlength(res, row_number, column_number));
+            RETVAL = newSVpvn_utf8(pv, PQgetlength(res, row_number, column_number), 1);
         else
             RETVAL = &PL_sv_undef;
     }
@@ -432,7 +440,7 @@ PPCODE:
             if (!PQgetisnull(res, i, j)) {
                 char *pv = PQgetvalue(res, i, j);
                 if (pv) {
-                    mPUSHs(newSVpvn(pv, PQgetlength(res, i, j)));
+                    PUSHs(newSVpvn_utf8(pv, PQgetlength(res, i, j), 1));
                     continue;
                 }
             }
@@ -459,7 +467,7 @@ PPCODE:
             if (!PQgetisnull(res, i, j)) {
                 char *pv = PQgetvalue(res, i, j);
                 if (pv) {
-                    mPUSHs(newSVpvn(pv, PQgetlength(res, i, j)));
+                    PUSHs(newSVpvn_utf8(pv, PQgetlength(res, i, j), 1));
                     continue;
                 }
             }
@@ -490,7 +498,7 @@ PPCODE:
             for (j = 0; j < cols; j++) {
                 char *pv = PQgetvalue(res, i, j);
                 if (pv)
-                    av_store(av, j, newSVpvn(pv, PQgetlength(res, i, j)));
+                    av_store(av, j, newSVpvn_utf8(pv, PQgetlength(res, i, j), 1));
                 else
                     av_store(av, j, &PL_sv_undef);
             }
@@ -521,7 +529,7 @@ PPCODE:
                 if (!PQgetisnull(res, i, j)) {
                     char *pv = PQgetvalue(res, i, j);
                     if (pv) {
-                        av_store(av, i, newSVpvn(pv, PQgetlength(res, i, j)));
+                        av_store(av, i, newSVpvn_utf8(pv, PQgetlength(res, i, j), 1));
                         continue;
                     }
                 }
@@ -559,7 +567,7 @@ CODE:
     if (!pv || !pv[0])
         RETVAL = &PL_sv_undef;
     else
-        RETVAL = newSVpv(pv, 0);
+        RETVAL = my_newSVpv_utf8(aTHX_ pv);
 OUTPUT:
     RETVAL
 
@@ -581,7 +589,7 @@ CODE:
     if (r)
         RETVAL = &PL_sv_undef;
     else {
-        RETVAL = newSVpv(buf, 0);
+        RETVAL = my_newSVpv_utf8(aTHX_ buf);
         SvUPGRADE(RETVAL, SVt_PVIV);
         SvIOK_on(RETVAL);
         SvIV_set(RETVAL, 1);

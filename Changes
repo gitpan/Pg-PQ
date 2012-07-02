@@ -1,5 +1,9 @@
 Revision history for Perl extension Pg::PQ.
 
+0.09  Jul 2, 2012
+        - return libpq version as obtained from pg_config instead of
+          from libVersion
+
 0.08  May 10, 2012
         - wrap libVersion
         - set client_encoding to UTF8 on new connections

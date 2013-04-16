@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:               Pg-PQ
-version:            0.11
+version:            0.12
 abstract:           Perl wrapper for PostgreSQL libpq
 author:
     - Salvador Fandino <sfandino@yahoo.com>

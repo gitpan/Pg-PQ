@@ -91,6 +91,29 @@ OUTPUT:
 
 MODULE = Pg::PQ		PACKAGE = Pg::PQ::Conn          PREFIX=PQ
 
+void
+PQdefaults(...)
+PREINIT:
+    PQconninfoOption *opts;
+    int n = 0;
+PPCODE:
+    opts = PQconndefaults();
+    if (opts) {
+        for (; opts[n].keyword; n++) {
+            HV *hv = newHV();
+            XPUSHs(newRV_noinc((SV*)hv));
+            hv_stores(hv, "keyword" , newSVpv(opts[n].keyword , 0));
+            hv_stores(hv, "envvar"  , newSVpv(opts[n].envvar  , 0));
+            hv_stores(hv, "compiled", newSVpv(opts[n].compiled, 0));
+            hv_stores(hv, "value"   , newSVpv(opts[n].val     , 0));
+            hv_stores(hv, "label"   , newSVpv(opts[n].label   , 0));
+            hv_stores(hv, "dispchar", newSVpv(opts[n].dispchar, 0));
+            hv_stores(hv, "dispsize", newSViv(opts[n].dispsize));
+        }
+        PQconninfoFree(opts);
+    }
+    XSRETURN(n);
+
 PGconn *PQconnectdb(const char *conninfo);
 
 PGconn *PQconnectStart(char *conninfo)
@@ -499,7 +522,7 @@ PPCODE:
         for (j = 0; j < cols; j++) {
             SV *key;
             SV *val = ( PQgetisnull(res, i, j) 
-                        ? &PL_sv_undef
+                        ? newSV(0)
                         : newSVpvn_utf8(PQgetvalue(res, i, j), PQgetlength(res, i, j), 1));
             if ((items > j + 2) && SvOK(ST(j + 2))) {
                 key = ST(j + 2);
@@ -574,7 +597,7 @@ PPCODE:
     }
 
 void
-PQgettuples_as_hash(PGresult *res)
+PQgettuples_as_hashes(PGresult *res)
 ALIAS:
     rowsAsHashes = 0
 PREINIT:
@@ -603,7 +626,7 @@ PPCODE:
             HV *hv = newHV();
             for (j = 0; j < cols; j++) {
                 SV *val = ( PQgetisnull(res, i, j)
-                            ? &PL_sv_undef
+                            ? newSV(0)
                             : newSVpvn_utf8(PQgetvalue(res, i, j), PQgetlength(res, i, j), 1) );
                 hv_store_ent(hv, names[j], val, 0);
             }

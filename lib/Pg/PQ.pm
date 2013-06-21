@@ -1,7 +1,7 @@
 
 package Pg::PQ;
 
-our $VERSION = '0.12';
+our $VERSION = '0.13';
 
 use 5.010001;
 use strict;
@@ -154,6 +154,10 @@ even L<Coro>.
 These are the methods available from the class Pg::PQ::Conn:
 
 =over 4
+
+=item @defaults = Pg::PQ::Conn::defaults();
+
+Returns a list of hashes describing the acceptable connection options.
 
 =item $dbc = Pg::PQ::Conn->new($conninfo)
 
@@ -1239,8 +1243,6 @@ we would have the results:
   $res->columnNumber('BAR');    # -1
   $res->columnNumber('"BAR"');  # 1
 
-=back
-
 =item $oid = $res->columnTable($index)
 
 Returns the OID of the table from which the given column was
@@ -1351,6 +1353,8 @@ X<nParams>Return the number of parameters on the prepared query.
 
 X<paramType>Returns the type of the parameter at the given index on a
 prepared query.
+
+=back
 
 =head2 Pg::PQ::Cancel class
 
@@ -1681,6 +1685,8 @@ L<https://rt.cpan.org/Dist/Display.html?Status=Active&Queue=Pg-PQ>.
 
 =head2 Known bugs and limitations
 
+=over 4
+
 =item *
 
 Currently all the data is transferred as text, that means that strings
@@ -1695,6 +1701,8 @@ convert from/to client utf8 to the server representation.
 But anyway, if you find some encoding related problem when connecting
 to a database configured to use a different encoding, don't hesitate
 to post a bug report on the module bug tracker!
+
+=back
 
 =head2 Commercial support
 
